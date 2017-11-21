@@ -81,7 +81,7 @@ void * threadSolver( void* args ){
         }
         j=1;
     }
-
+    printMatrix(arg->s,arg->workingMatrix);
     return biggestDiff; //free later
 }
 
@@ -96,6 +96,7 @@ void threadedSolver(size_t s, double** originalMatrix, int t, double p){
     }
 
     while (biggestDiff >= p) {
+        printf("hello");
         biggestDiff = 0.0;
         deepCopy(s, originalMatrix, workingMatrix);
         pthread_t threads[t];
@@ -124,7 +125,7 @@ void threadedSolver(size_t s, double** originalMatrix, int t, double p){
             }
         }
         deepCopy(s, workingMatrix, originalMatrix);
-    }
+}
 }
 
 

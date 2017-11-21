@@ -2,6 +2,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include<pthread.h>
+
+struct threadArguments {
+    size_t s;
+    double **originalMatrix;
+    double **workingMatrix;
+    int start;          //Start variable refers to the ith element to be calculated, not position in array
+    int n;
+    double p;
+};
 
 void populateMatrix(size_t s, double matrix[s][s]) {
     int i, j;
@@ -38,77 +48,100 @@ void readFromFile(size_t s, double matrix[s][s]) {
     fclose(f);
 }
 
-void * threadSolver(size_t s, double** originalMatrix, double** workMatrix, int start, int n, double p ){
+void deepCopy(size_t s, double** matrix, double** matrixCopy){
+    for (int i=0; i < s; i++) {
+        for (int j = 0; j < s; j++) {
+            matrixCopy[i][j]=matrix[i][j];
+        }
+    }
+}
+
+void * threadSolver( void* args ){
+    struct threadArguments *arg=(struct threadArguments*)args;
     //will be ran simultaneosuly by multiple threads, need to protect memory??
     double a, b, c, d, diff, element;
-    double biggestDiff = p;
-    int i=(int) floor(start/(s-2))+1;
-    int j= start%(s-2); //only from initial J in first i loop
+    double * biggestDiff=malloc(sizeof(double));
+    int i=(int) floor(arg->start/(arg->s-2))+1;
+    int j=  arg->start%( arg->s-2); //only from initial J in first i loop
     int count=0;
 
-    for (i; i < (s-1); i++) {
-        for (j; j < (s-1); j++) {
-            if (count<n){
-                a = matrix[(i - 1)][j];
-                b = matrix[(i + 1)][j];
-                c = matrix[i][(j + 1)];
-                d = matrix[i][(j - 1)];
+    for (i; i < ( arg->s-1); i++) {
+        for (j; j < ( arg->s-1); j++) {
+            if (count< arg->n){
+                a = arg->originalMatrix[(i - 1)][j];
+                b = arg->originalMatrix[(i + 1)][j];
+                c = arg->originalMatrix[i][(j + 1)];
+                d = arg->originalMatrix[i][(j - 1)];
                 element = ((a + b + c + d) / 4.0);
-                workingMatrix[i][j] = element;
-                diff = fabs(workingMatrix[i][j] - matrix[i][j]);
+                arg->workingMatrix[i][j] = element;
+                diff = fabs( arg->workingMatrix[i][j] -  arg->originalMatrix[i][j]);
                 //could get rid of if check and have variable for j condition, in last i loop set to n-(i*(s-2))
-                if (diff > biggestDiff) { biggestDiff = diff;}
+                if (diff > *biggestDiff) { *biggestDiff = diff;}
                 count++;
             }
         }
         j=1;
     }
-    return *biggestDiff;
+
+    return biggestDiff; //free later
 }
 
 
 void threadedSolver(size_t s, double originalMatrix[s][s], int t, double p){
     double biggestDiff=p;
     int i, elements, start;
-    while (biggestDiff >= p) {
-        biggestDiff = 0.0;
-        for (i=0; i<t; i++){
-            if (i!=(t-1)){
-                elements=(int) floor((pow((s-2),2)/t));
-                start=(elements*t)+1;
-            } else {
-                elements=(int) modf( pow((s-2),2),t);
-                start=pow((s-2),2) - elements +1;
-            }
-            create thread (threadSolver size_t s, **og, **working, start, elements, p);
-            //need a struct to encapsulate all arguments? can you pass multiple args to p thread?
-            //biggestDiff=greatest of all threads, should not go past here until all threads complete
-        }
-
-        memcpy(workingMatrix, initialMatrix, sizeof(initialMatrix));
+    double ** workingMatrix=(double **)malloc(s * sizeof(double));
+    for (int i=0; i<s; i++){
+        workingMatrix[i]=(double *)malloc(s *sizeof(double));
     }
 
+    while (biggestDiff >= p) {
+        biggestDiff = 0.0;
+        deepCopy(s, originalMatrix, workingMatrix);
+        pthread_t threads[t];
+        //array of thread addresses
 
-    //create thread (threadSolver size_t s, **og, **working, index of start = elementsThread*t (not quite right), elements, p)
-
-
-
-//Start variable refers to the ith element to be calculated, not position in array
-
+        for (i=0; i<t; i++){
+            struct threadArguments* arg=malloc(sizeof(struct threadArguments));
+            arg->p=p;
+            arg->originalMatrix=originalMatrix;
+            arg->workingMatrix=workingMatrix;   //same
+            arg->s = s;
+            if (i!=(t-1)){
+                arg->n=(int) floor((pow((s-2),2)/t));
+                arg->start=(elements*t)+1;
+            } else {
+                arg->n=(int) modf( pow((s-2),2),t);
+                arg->start=start=pow((s-2),2) - elements +1;
+            }
+            pthread_create(threads[i],NULL, threadSolver,arg );
+            //biggestDiff=greatest of all threads, should not go past here until all threads complete
+        }
+        for (i=0; i<t;i++){
+            double* diff;
+            pthread_join(threads[i],diff);
+            if (*diff>biggestDiff){
+                biggestDiff=*diff;
+            }
+        }
+        deepCopy(s, workingMatrix, originalMatrix);
+    }
 }
+
 
 int main() {
     const size_t s = 40;
     int t = 1;
     float p = 0.001;
-    double initialMatrix[s][s];
-    double workingMatrix[s][s];
+    double ** initialMatrix=(double **)malloc(s * sizeof(double));
+    for (int i=0; i<s; i++){
+        initialMatrix[i]=(double *)malloc(s *sizeof(double));
+    }
+
     readFromFile(s, initialMatrix);
-   // solveMatrix(s, *initialMatrix, 1, p);
-
+    threadedSolver(s, initialMatrix, t, p);
+    //free later
 }
-
-
 
 
 

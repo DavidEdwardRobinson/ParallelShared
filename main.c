@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include<pthread.h>
 
@@ -10,7 +9,6 @@ struct threadArguments {
     double **workingMatrix;
     int start;          //Start variable refers to the ith element to be calculated, not position in array
     int n;
-    double p;
 };
 
 void populateMatrix(size_t s, double matrix[s][s]) {
@@ -39,7 +37,7 @@ void writeToFile(size_t s, double matrix[s][s]) {
     fclose(f);
 }
 
-void readFromFile(size_t s, double matrix[s][s]) {
+void readFromFile(size_t s, double** matrix) {
     FILE *f = fopen("matrix.txt", "r");
     int i, j;
     for (i = 0; i < s; i++)
@@ -87,11 +85,11 @@ void * threadSolver( void* args ){
 }
 
 
-void threadedSolver(size_t s, double originalMatrix[s][s], int t, double p){
+void threadedSolver(size_t s, double** originalMatrix, int t, double p){
     double biggestDiff=p;
-    int i, elements, start;
+    int i;
     double ** workingMatrix=(double **)malloc(s * sizeof(double));
-    for (int i=0; i<s; i++){
+    for (i=0; i<s; i++){
         workingMatrix[i]=(double *)malloc(s *sizeof(double));
     }
 
@@ -103,16 +101,15 @@ void threadedSolver(size_t s, double originalMatrix[s][s], int t, double p){
 
         for (i=0; i<t; i++){
             struct threadArguments* arg=malloc(sizeof(struct threadArguments));
-            arg->p=p;
             arg->originalMatrix=originalMatrix;
             arg->workingMatrix=workingMatrix;   //same
             arg->s = s;
             if (i!=(t-1)){
-                arg->n=(int) floor((pow((s-2),2)/t));
-                arg->start=(elements*t)+1;
+                arg->n=(int) floor((pow((arg->s-2),2)/t));
+                arg->start=(arg->n/*elements*/*t)+1;
             } else {
-                arg->n=(int) modf( pow((s-2),2),t);
-                arg->start=start=pow((s-2),2) - elements +1;
+                arg->n=(int) modf( pow((arg->s-2.0),2.0),t);
+                arg->start=pow((arg->s-2),2) - /*elements*/arg->n +1;
             }
             pthread_create(threads[i],NULL, threadSolver,arg );
             //biggestDiff=greatest of all threads, should not go past here until all threads complete
@@ -137,7 +134,6 @@ int main() {
     for (int i=0; i<s; i++){
         initialMatrix[i]=(double *)malloc(s *sizeof(double));
     }
-
     readFromFile(s, initialMatrix);
     threadedSolver(s, initialMatrix, t, p);
     //free later

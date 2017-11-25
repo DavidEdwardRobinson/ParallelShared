@@ -103,7 +103,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
 void readFromFile(const size_t s, double **matrix, char *directory) {
     char buffer [50];
     sprintf(buffer, "%s/%d.txt", directory, s);
-   // printf("%s\n",buffer);
+    printf("%s\n",buffer);
     FILE *f = fopen(buffer, "r");
     int i, j;
     for (i = 0; i < s; i++)

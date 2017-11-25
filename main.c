@@ -103,6 +103,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
 void readFromFile(const size_t s, double **matrix, char *directory) {
     char buffer [50];
     sprintf(buffer, "%s/%d.txt", directory, s);
+   // printf("%s\n",buffer);
     FILE *f = fopen(buffer, "r");
     int i, j;
     for (i = 0; i < s; i++)
@@ -130,8 +131,12 @@ void writeToFile(const size_t s, double **matrix, float diff, int t, char *direc
 int main(int argc, char *argv[]) {
     const size_t s = atoi(argv[1]);
     int t = atoi(argv[2]);
-    char workingDirectory[sizeof(argv[3])];
+    char workingDirectory[strlen(argv[3])];
     strcpy(workingDirectory, argv[3]);
+    //printf("Test1\n");
+    //printf("%s\n", argv[3]);
+    //printf("%s\n",workingDirectory);
+    //printf("test2\n");
     float p = 0.001;
     double **initialMatrix = (double **) malloc(s * sizeof(double));
     for (int i = 0; i < s; i++) {

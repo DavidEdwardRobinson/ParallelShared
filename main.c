@@ -1,36 +1,104 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <pthread.h>
 #include <math.h>
 
-void populateMatrix(size_t s, double matrix[s][s]) {
-    int i, j;
-    double r;
-    for (i = 0; i < s; i++)
-        for (j = 0; j < s; j++) {
-            r = rand() % 10;
-            matrix[i][j] = r;
+
+struct threadArguments {
+    size_t s;
+    double **originalMatrix;
+    double **workingMatrix;
+    int start;                  //Start variable is ith element to be calculated(1 is first element), not position in array
+    int n;                      //elements to be calculated by thread
+};
+
+void deepCopy(size_t s, double **matrix, double **matrixCopy) {
+    for (int i = 0; i < s; i++) {
+        for (int j = 0; j < s; j++) {
+            matrixCopy[i][j] = matrix[i][j];
         }
+    }
 }
 
-void printMatrix(size_t s, double matrix[s][s]) {
-    int i, j;
-    for (i = 0; i < s; i++)
-        for (j = 0; j < s; j++)
-            printf(j == s ? "%f\t\n" : "%f\t", matrix[i][j]);
+void *threadSolver(void *args) {
+    struct threadArguments *arg = (struct threadArguments *) args;
+    double a, b, c, d, diff, element;
+    double *biggestDiff = malloc(sizeof(double));
+    int i = (int) floor(arg->start / (arg->s - 2)) + 1;     //Start Row: round down(startElement/elementsPerRow) + 1
+    int j = (int) (arg->start % (arg->s - 2));               //Start Col: remainder (startElement/elementsPerRow)
+    int count = 0;                                            //count of elements to process
+
+    for (i; i < ((arg->s) - 1); i++) {
+        for (j; j < ((arg->s) - 1); j++) {
+            if (count < arg->n) {
+                a = arg->originalMatrix[(i - 1)][j];
+                b = arg->originalMatrix[(i + 1)][j];
+                c = arg->originalMatrix[i][(j + 1)];
+                d = arg->originalMatrix[i][(j - 1)];
+                element = ((a + b + c + d) / 4.0);
+                arg->workingMatrix[i][j] = element;
+                diff = fabs(arg->workingMatrix[i][j] - arg->originalMatrix[i][j]);
+                if (diff > *biggestDiff) { *biggestDiff = diff; }
+                count++;
+            }
+        }
+
+        j = 1;                                                //after first loop, start col =1
+    }
+    return biggestDiff;                                     //return biggest diff for thread
 }
 
-void writeToFile(size_t s, double matrix[s][s]) {
-    FILE *f = fopen("matrixResultThreaded.txt", "w");
-    int i, j;
-    for (i = 0; i < s; i++)
-        for (j = 0; j < s; j++)
-            fprintf(f, "%f\n", matrix[i][j]);
-    fclose(f);
+void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
+    double biggestDiff = p;
+    int i;
+    double **workingMatrix = (double **) malloc(s * sizeof(double));
+    for (i = 0; i < s; i++) {
+        workingMatrix[i] = (double *) malloc(s * sizeof(double));
+    }
+
+    while (biggestDiff >= p) {
+        biggestDiff = 0.0;
+        deepCopy(s, originalMatrix, workingMatrix);
+        pthread_t threads[t];
+        int noElements = (int) floor(
+                (pow((s - 2), 2) / t));       //elements per thread = round down of elements to be calculated/ NoThreads
+                                                //if t> elements to be calculated, last thread will do all the work
+        for (i = 0; i < t; i++) {
+            struct threadArguments *arg = malloc(sizeof(struct threadArguments));
+            arg->originalMatrix = originalMatrix;
+            arg->workingMatrix = workingMatrix;
+            arg->s = s;
+            arg->start = i * noElements + 1;
+
+            if (i != (t - 1)) {
+                arg->n = noElements;
+            } else {                                            //when last thread
+                arg->n = (int) pow((s - 2), 2) -
+                         (i * noElements);                      //elements = total elements - elements assigned so far
+
+            }
+            pthread_create(&threads[i], NULL, threadSolver, arg);
+        }
+
+        for (i = 0; i < t; i++) {
+            double *diff = NULL;
+            pthread_join(threads[i], (void **) &diff);            //wait for threads to complete
+            if (*diff > biggestDiff) {                             //biggest diff from all threads=biggest diff
+                biggestDiff = *diff;
+            }
+        }
+        deepCopy(s, workingMatrix, originalMatrix);             //copy the working matrix onto original matrix
+    }
+    for (i=0; i<sizeof(workingMatrix[0]); i++){                 //now done with matrix copy
+        free(workingMatrix[i]);
+    }
+    free(workingMatrix);
 }
 
-void readFromFile(size_t s, double matrix[s][s]) {
-    FILE *f = fopen("matrix.txt", "r");
+void readFromFile(size_t s, double **matrix) {
+    char buffer [50];
+    sprintf(buffer, "%d.txt", s);
+    FILE *f = fopen(buffer, "r");
     int i, j;
     for (i = 0; i < s; i++)
         for (j = 0; j < s; j++)
@@ -38,77 +106,43 @@ void readFromFile(size_t s, double matrix[s][s]) {
     fclose(f);
 }
 
-void * threadSolver(size_t s, double** originalMatrix, double** workMatrix, int start, int n, double p ){
-    //will be ran simultaneosuly by multiple threads, need to protect memory??
-    double a, b, c, d, diff, element;
-    double biggestDiff = p;
-    int i=(int) floor(start/(s-2))+1;
-    int j= start%(s-2); //only from initial J in first i loop
-    int count=0;
-
-    for (i; i < (s-1); i++) {
-        for (j; j < (s-1); j++) {
-            if (count<n){
-                a = matrix[(i - 1)][j];
-                b = matrix[(i + 1)][j];
-                c = matrix[i][(j + 1)];
-                d = matrix[i][(j - 1)];
-                element = ((a + b + c + d) / 4.0);
-                workingMatrix[i][j] = element;
-                diff = fabs(workingMatrix[i][j] - matrix[i][j]);
-                //could get rid of if check and have variable for j condition, in last i loop set to n-(i*(s-2))
-                if (diff > biggestDiff) { biggestDiff = diff;}
-                count++;
-            }
+void writeToFile(int s, double **matrix, float diff, int t) {
+    char buffer[50];
+    sprintf(buffer, "%dRT%d.txt", s,t);
+    FILE *f = fopen(buffer, "w");
+    int i, j;
+    for (i = 0; i < s; i++){
+        for (j = 0; j < s; j++) {
+            fprintf(f, "%f,", matrix[i][j]);
         }
-        j=1;
+        fprintf(f, "\n");
     }
-    return *biggestDiff;
+    fprintf(f,"Time taken: %f ms", diff);
+    fclose(f);
 }
 
-
-void threadedSolver(size_t s, double originalMatrix[s][s], int t, double p){
-    double biggestDiff=p;
-    int i, elements, start;
-    while (biggestDiff >= p) {
-        biggestDiff = 0.0;
-        for (i=0; i<t; i++){
-            if (i!=(t-1)){
-                elements=(int) floor((pow((s-2),2)/t));
-                start=(elements*t)+1;
-            } else {
-                elements=(int) modf( pow((s-2),2),t);
-                start=pow((s-2),2) - elements +1;
-            }
-            create thread (threadSolver size_t s, **og, **working, start, elements, p);
-            //need a struct to encapsulate all arguments? can you pass multiple args to p thread?
-            //biggestDiff=greatest of all threads, should not go past here until all threads complete
-        }
-
-        memcpy(workingMatrix, initialMatrix, sizeof(initialMatrix));
-    }
-
-
-    //create thread (threadSolver size_t s, **og, **working, index of start = elementsThread*t (not quite right), elements, p)
-
-
-
-//Start variable refers to the ith element to be calculated, not position in array
-
-}
-
-int main() {
-    const size_t s = 40;
-    int t = 1;
+//usage:Call, arg1 size, arg2 threads
+int main(int argc, char *argv[]) {
+    const size_t s = atoi(argv[1]);
+    int t = atoi(argv[2]);
     float p = 0.001;
-    double initialMatrix[s][s];
-    double workingMatrix[s][s];
+    double **initialMatrix = (double **) malloc(s * sizeof(double));
+    for (int i = 0; i < s; i++) {
+        initialMatrix[i] = (double *) malloc(s * sizeof(double));
+    }
     readFromFile(s, initialMatrix);
-   // solveMatrix(s, *initialMatrix, 1, p);
+    clock_t start,end;
+    start=clock();
+    threadedSolver(s, initialMatrix, t, p);
+    end=clock();
+    float diff = ((float)(end-start) / 1000000.0F ) * 1000;
+    writeToFile(s, initialMatrix,diff,t);
 
+    for (int i=0; i<sizeof(initialMatrix[0]); i++){
+        free(initialMatrix[i]);
+    }
+    free(initialMatrix);
 }
-
-
 
 
 

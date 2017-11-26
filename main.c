@@ -4,6 +4,7 @@
 #include <time.h>
 #include <pthread.h>
 
+//arguments required for thread
 struct threadArguments {
     size_t s;
     double **originalMatrix;
@@ -15,6 +16,7 @@ struct threadArguments {
 
 
 //matrix copy function, only copies outside edges on initial copy
+//edges don't change so no need to copy them after
 void deepCopy(size_t s, double **matrix, double **matrixCopy, int initialFlag) {
     if (initialFlag == 1) {
         for (int i = 0; i < s; i++)
@@ -64,40 +66,35 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     for (i= 0; i < s; i++) {
         workingMatrix[i] = (double *) malloc(s * sizeof(double));
     }
-    deepCopy(s, originalMatrix, workingMatrix, 1);//initial copy
+    deepCopy(s, originalMatrix, workingMatrix, 1);              //initial copy
 
     int noElements = (int) floor(                                  //elements per thread = round down of elements to be calculated/ NoThreads
             (pow((s - 2), 2) / t));
     int lastTElements = (int) pow( (s - 2), 2)                      //when last thread
                         -  ((t - 1) *  noElements);                 //elements = total elements - elements assigned so far
 
-
-    struct threadArguments *argArray=(struct threadArguments *) malloc(t*sizeof(struct threadArguments));
+    struct threadArguments *argArray=(struct threadArguments *)     //array of arguments for thread
+            malloc(t*sizeof(struct threadArguments));               //doesn't change for iteration, calculate outside main loop
 
     for (i=0; i<t; i++){
         argArray[i].originalMatrix = originalMatrix;
         argArray[i].workingMatrix = workingMatrix;
         argArray[i].s = s;
         argArray[i].startRow = (int) floor((i * noElements + 1) / (s - 2)) + 1; //Start Row: round down(startElement/elementsPerRow) + 1
-        argArray[i].startCol =  (int) (i * noElements + 1)% (s - 2); //Start Col: remainder (startElement/elementsPerRow)
+        argArray[i].startCol =  (int) (i * noElements + 1)% (s - 2);            //Start Col: remainder (startElement/elementsPerRow)
 
-        if (i != (t - 1)) {                                 //if not last thread, normal elements/thread
+        if (i != (t - 1)) {                                                  //if not last thread, normal elements/thread
             argArray[i].n = noElements;
         } else {
-            argArray[i].n = lastTElements;
-
+            argArray[i].n = lastTElements;                                  //last thread remaining elements
         }
-
-
     }
     pthread_t threads[t];
 
     while (biggestDiff >= p) {
         biggestDiff = 0.0;                                          //set to 0 else diff>biggest diff at end of loop will never assign
-
-        for (i = 0; i < t; i++) {
+        for (i = 0; i < t; i++)
             pthread_create(&threads[i], NULL, threadSolver, &argArray[i]);//send work to thread solver
-        }
 
         for (i = 0; i < t; i++) {
             double *diff = NULL;
@@ -107,7 +104,6 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
             }
             free(diff);
         }
-
         deepCopy(s, workingMatrix, originalMatrix, 0);             //copy the working matrix onto original matrix
     }
     free(argArray);
@@ -117,7 +113,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     free(workingMatrix);
 }
 
-
+//input format $size.txt same directory as executable
 void readFromFile(size_t s, double **matrix) {
     char buffer[50];
     sprintf(buffer, "%d.txt", s);
@@ -129,6 +125,7 @@ void readFromFile(size_t s, double **matrix) {
     fclose(f);
 }
 
+//output format $sizeRT$threads.txt same directory as executable
 void writeToFile(size_t s, double **matrix, float diff, int t) {
     char buffer[50];
     sprintf(buffer, "%dRT%d.txt", s, t);

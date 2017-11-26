@@ -64,7 +64,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     for (i = 0; i < s; i++) {
         workingMatrix[i] = (double *) malloc(s * sizeof(double));
     }
-    deepCopy(s, originalMatrix, workingMatrix, 1);
+    deepCopy(s, originalMatrix, workingMatrix, 1);                  //initial copy
 
 
     while (biggestDiff >= p) {
@@ -87,7 +87,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
 
             }
             pthread_create(&threads[i], NULL, threadSolver, arg);//send work to thread solver
-            // free(arg);                                        //can't free used by thread, can't free outside loop var not found?
+            // free(arg);                                        //can't free here used by thread, can't free outside loop var not found?
         }
 
 

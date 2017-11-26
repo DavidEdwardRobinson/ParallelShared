@@ -1,0 +1,4 @@
+Calculate the rows needed by other threads(Not actually a thread?)
+So first and last rows, return
+Then keep going
+Retrun diff

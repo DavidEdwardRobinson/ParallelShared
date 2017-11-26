@@ -12,11 +12,18 @@ struct threadArguments {
     int n;                      //elements to be calculated by thread
 };
 
+
+
 //matrix copy function
-//could speed up by not copying rows 0,i ,col 0,j
-void deepCopy(size_t s, double **matrix, double **matrixCopy) {
-    for (int i = 0; i < s; i++) {
-        for (int j = 0; j < s; j++) {
+void deepCopy(size_t s, double **matrix, double **matrixCopy, int initialFlag) {
+    int i, j, size;
+    if (initialFlag == 1){
+        i=0;j=0; size=s;
+    } else {
+        i=1;j=1; size=s-1;
+    }
+    for (i; i < size; i++) {
+        for ( j; j < size; j++) {
             matrixCopy[i][j] = matrix[i][j];
         }
     }
@@ -57,10 +64,10 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     for (i = 0; i < s; i++) {
         workingMatrix[i] = (double *) malloc(s * sizeof(double));
     }
+    deepCopy(s, originalMatrix, workingMatrix, 1);
 
     while (biggestDiff >= p) {
         biggestDiff = 0.0;                                          //set to 0 else diff>biggest diff at end of loop will never assign
-        deepCopy(s, originalMatrix, workingMatrix); //already the same?
         pthread_t threads[t];
         int noElements = (int) floor((pow((s - 2), 2) / t));       //elements per thread = round down of elements to be calculated/ NoThreads
                                                                     //if t> elements to be calculated, last thread will do all the work
@@ -92,13 +99,15 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
             free(diff);
         }
 
-        deepCopy(s, workingMatrix, originalMatrix);             //copy the working matrix onto original matrix
+        deepCopy(s, workingMatrix, originalMatrix, 0);             //copy the working matrix onto original matrix
     }
     for (i=0; i<sizeof(workingMatrix[0]); i++){                 //now done with matrix copy
         free(workingMatrix[i]);
     }
     free(workingMatrix);
 }
+
+
 
 void readFromFile(size_t s, double **matrix) {
     char buffer [50];

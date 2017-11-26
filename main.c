@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <math.h>
 #include <time.h>
 #include <pthread.h>
@@ -63,7 +62,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
         pthread_t threads[t];
         int noElements = (int) floor(
                 (pow((s - 2), 2) / t));       //elements per thread = round down of elements to be calculated/ NoThreads
-        //if t> elements to be calculated, last thread will do all the work
+                                                //if t> elements to be calculated, last thread will do all the work
         for (i = 0; i < t; i++) {
             struct threadArguments *arg = malloc(sizeof(struct threadArguments));
             arg->originalMatrix = originalMatrix;
@@ -100,10 +99,9 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     free(workingMatrix);
 }
 
-void readFromFile(const size_t s, double **matrix, char *directory) {
+void readFromFile(int s, double **matrix) {
     char buffer [50];
-    sprintf(buffer, "%s/%d.txt", directory, s);
-    printf("%s\n",buffer);
+    sprintf(buffer, "%d.txt", s);
     FILE *f = fopen(buffer, "r");
     int i, j;
     for (i = 0; i < s; i++)
@@ -112,9 +110,9 @@ void readFromFile(const size_t s, double **matrix, char *directory) {
     fclose(f);
 }
 
-void writeToFile(const size_t s, double **matrix, float diff, int t, char *directory) {
+void writeToFile(int s, double **matrix, float diff, int t) {
     char buffer[50];
-    sprintf(buffer, "%s/%dRT%d.txt", directory,s,t);
+    sprintf(buffer, "%dRT%d.txt", s,t);
     FILE *f = fopen(buffer, "w");
     int i, j;
     for (i = 0; i < s; i++){
@@ -131,24 +129,18 @@ void writeToFile(const size_t s, double **matrix, float diff, int t, char *direc
 int main(int argc, char *argv[]) {
     const size_t s = atoi(argv[1]);
     int t = atoi(argv[2]);
-    char workingDirectory[strlen(argv[3])];
-    strcpy(workingDirectory, argv[3]);
-    //printf("Test1\n");
-    //printf("%s\n", argv[3]);
-    //printf("%s\n",workingDirectory);
-    //printf("test2\n");
     float p = 0.001;
     double **initialMatrix = (double **) malloc(s * sizeof(double));
     for (int i = 0; i < s; i++) {
         initialMatrix[i] = (double *) malloc(s * sizeof(double));
     }
-    readFromFile(s, initialMatrix, workingDirectory);
+    readFromFile(s, initialMatrix);
     clock_t start,end;
     start=clock();
     threadedSolver(s, initialMatrix, t, p);
     end=clock();
     float diff = ((float)(end-start) / 1000000.0F ) * 1000;
-    writeToFile(s, initialMatrix, diff, t, workingDirectory);
+    writeToFile(s, initialMatrix, diff, t);
 
     for (int i=0; i<sizeof(initialMatrix[0]); i++){
         free(initialMatrix[i]);

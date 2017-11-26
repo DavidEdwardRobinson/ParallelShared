@@ -71,37 +71,33 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     int lastTElements = (int) pow( (s - 2), 2)                      //when last thread
                         -  ((t - 1) *  noElements);                 //elements = total elements - elements assigned so far
 
-    int startRow[t],startCol[t];                                    //pre calculate each threads start Row and Col
+
+    struct threadArguments *argArray=(struct threadArguments *) malloc(t*sizeof(struct threadArguments));
+
     for (i=0; i<t; i++){
-        startRow[i]=(int) floor((i * noElements + 1) / (s - 2)) + 1;        //Start Row: round down(startElement/elementsPerRow) + 1
-        startCol[i]=    (int) (i * noElements + 1)% (s - 2);                //Start Col: remainder (startElement/elementsPerRow)
+        argArray[i].originalMatrix = originalMatrix;
+        argArray[i].workingMatrix = workingMatrix;
+        argArray[i].s = s;
+        argArray[i].startRow = (int) floor((i * noElements + 1) / (s - 2)) + 1; //Start Row: round down(startElement/elementsPerRow) + 1
+        argArray[i].startCol =  (int) (i * noElements + 1)% (s - 2); //Start Col: remainder (startElement/elementsPerRow)
+
+        if (i != (t - 1)) {                                 //if not last thread, normal elements/thread
+            argArray[i].n = noElements;
+        } else {
+            argArray[i].n = lastTElements;
+
+        }
+
 
     }
-
-
+    pthread_t threads[t];
 
     while (biggestDiff >= p) {
         biggestDiff = 0.0;                                          //set to 0 else diff>biggest diff at end of loop will never assign
-        pthread_t threads[t];
 
         for (i = 0; i < t; i++) {
-            struct threadArguments *arg = malloc(sizeof(struct threadArguments));
-            arg->originalMatrix = originalMatrix;
-            arg->workingMatrix = workingMatrix;
-            arg->s = s;
-            arg->startRow = startRow[i];
-            arg->startCol = startCol[i];
-
-            if (i != (t - 1)) {                                 //if not last thread, normal elements/thread
-                arg->n = noElements;
-            } else {
-                arg->n = lastTElements;
-
-            }
-            pthread_create(&threads[i], NULL, threadSolver, arg);//send work to thread solver
-            // free(arg);                                        //can't free here used by thread, can't free outside loop var not found?
+            pthread_create(&threads[i], NULL, threadSolver, &argArray[i]);//send work to thread solver
         }
-
 
         for (i = 0; i < t; i++) {
             double *diff = NULL;
@@ -114,6 +110,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
 
         deepCopy(s, workingMatrix, originalMatrix, 0);             //copy the working matrix onto original matrix
     }
+    free(argArray);
     for (i = 0; i < sizeof(workingMatrix[0]); i++) {                 //now done with matrix copy
         free(workingMatrix[i]);
     }

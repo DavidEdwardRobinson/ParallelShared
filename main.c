@@ -14,19 +14,19 @@ struct threadArguments {
 
 
 
-//matrix copy function
+//matrix copy function, only copies outside edges on initial copy
 void deepCopy(size_t s, double **matrix, double **matrixCopy, int initialFlag) {
-    int i, j, size;
     if (initialFlag == 1){
-        i=0;j=0; size=s;
+        for (int i=0; i < s; i++)
+            for (int j=0; j < s; j++)
+                matrixCopy[i][j] = matrix[i][j];
     } else {
-        i=1;j=1; size=s-1;
+        for (int i=1; i < (s-1); i++)
+            for (int j=1; j < (s-1); j++)
+                matrixCopy[i][j] = matrix[i][j];
     }
-    for (i; i < size; i++) {
-        for ( j; j < size; j++) {
-            matrixCopy[i][j] = matrix[i][j];
-        }
-    }
+
+
 }
 
 void *threadSolver(void *args) {
@@ -65,6 +65,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
         workingMatrix[i] = (double *) malloc(s * sizeof(double));
     }
     deepCopy(s, originalMatrix, workingMatrix, 1);
+
 
     while (biggestDiff >= p) {
         biggestDiff = 0.0;                                          //set to 0 else diff>biggest diff at end of loop will never assign
@@ -134,6 +135,7 @@ void writeToFile(size_t s, double **matrix, float diff, int t) {
     fprintf(f,"Time taken: %f ms", diff);
     fclose(f);
 }
+
 
 //usage:Call, arg1 size, arg2 threads
 int main(int argc, char *argv[]) {

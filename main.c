@@ -8,7 +8,8 @@ struct threadArguments {
     size_t s;
     double **originalMatrix;
     double **workingMatrix;
-    int start;                  //Start variable is ith element to be calculated(1 is first element), not position in array
+    int startCol;
+    int startRow;
     int n;                      //elements to be calculated by thread
 };
 
@@ -32,10 +33,9 @@ void *threadSolver(void *args) {
     struct threadArguments *arg = (struct threadArguments *) args;
     double a, b, c, d, diff, element;
     double *biggestDiff = malloc(sizeof(double));
-    int i = (int) floor(arg->start / (arg->s - 2)) + 1;     //Start Row: round down(startElement/elementsPerRow) + 1
-    int j = (int) (arg->start % (arg->s - 2));               //Start Col: remainder (startElement/elementsPerRow)
     int count = 0;                                            //count of elements to process
-
+    int i = arg->startRow;                                    //pre calculated start row
+    int j = arg-> startCol;                                   //pre calculated start col
     for (i; i < ((arg->s) - 1); i++) {
         for (j; j < ((arg->s) - 1); j++) {
             if (count < arg->n) {                           //if thread still has elements to calculate
@@ -58,18 +58,28 @@ void *threadSolver(void *args) {
 }
 
 void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
-    double biggestDiff = p;
     int i;
+    double biggestDiff = p;
     double **workingMatrix = (double **) malloc(s * sizeof(double));
-    for (i = 0; i < s; i++) {
+    for (i= 0; i < s; i++) {
         workingMatrix[i] = (double *) malloc(s * sizeof(double));
     }
-    deepCopy(s, originalMatrix, workingMatrix, 1);                  //initial copy
-    int noElements = (int) floor(
-            (pow((s - 2), 2) / t));                                 //elements per thread = round down of elements to be calculated/ NoThreads
+    deepCopy(s, originalMatrix, workingMatrix, 1);//initial copy
+
+    int noElements = (int) floor(                                  //elements per thread = round down of elements to be calculated/ NoThreads
+            (pow((s - 2), 2) / t));
     int lastTElements = (int) pow( (s - 2), 2)                      //when last thread
                         -  ((t - 1) *  noElements);                 //elements = total elements - elements assigned so far
-                                                                    //if t> elements to be calculated, last thread will do all the work
+
+    int startRow[t],startCol[t];                                    //pre calculate each threads start Row and Col
+    for (i=0; i<t; i++){
+        startRow[i]=(int) floor((i * noElements + 1) / (s - 2)) + 1;        //Start Row: round down(startElement/elementsPerRow) + 1
+        startCol[i]=    (int) (i * noElements + 1)% (s - 2);                //Start Col: remainder (startElement/elementsPerRow)
+
+    }
+
+
+
     while (biggestDiff >= p) {
         biggestDiff = 0.0;                                          //set to 0 else diff>biggest diff at end of loop will never assign
         pthread_t threads[t];
@@ -79,7 +89,8 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
             arg->originalMatrix = originalMatrix;
             arg->workingMatrix = workingMatrix;
             arg->s = s;
-            arg->start = i * noElements + 1;
+            arg->startRow = startRow[i];
+            arg->startCol = startCol[i];
 
             if (i != (t - 1)) {                                 //if not last thread, normal elements/thread
                 arg->n = noElements;
@@ -135,7 +146,6 @@ void writeToFile(size_t s, double **matrix, float diff, int t) {
     fprintf(f, "Time taken: %f ms", diff);
     fclose(f);
 }
-
 
 //usage:Call, arg1 size, arg2 threads
 int main(int argc, char *argv[]) {

@@ -62,7 +62,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
         pthread_t threads[t];
         int noElements = (int) floor(
                 (pow((s - 2), 2) / t));       //elements per thread = round down of elements to be calculated/ NoThreads
-                                                //if t> elements to be calculated, last thread will do all the work
+        //if t> elements to be calculated, last thread will do all the work
         for (i = 0; i < t; i++) {
             struct threadArguments *arg = malloc(sizeof(struct threadArguments));
             arg->originalMatrix = originalMatrix;
@@ -78,7 +78,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
 
             }
             pthread_create(&threads[i], NULL, threadSolver, arg);
-            free(arg);
+            // free(arg);                                        //can't free used by thread, can't free outside loop var not found?
         }
 
 
@@ -99,7 +99,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     free(workingMatrix);
 }
 
-void readFromFile(int s, double **matrix) {
+void readFromFile(size_t s, double **matrix) {
     char buffer [50];
     sprintf(buffer, "%d.txt", s);
     FILE *f = fopen(buffer, "r");
@@ -110,7 +110,7 @@ void readFromFile(int s, double **matrix) {
     fclose(f);
 }
 
-void writeToFile(int s, double **matrix, float diff, int t) {
+void writeToFile(size_t s, double **matrix, float diff, int t) {
     char buffer[50];
     sprintf(buffer, "%dRT%d.txt", s,t);
     FILE *f = fopen(buffer, "w");

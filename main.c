@@ -1,3 +1,8 @@
+/* David Robinson der26 25/11/17
+*Note: copied from windows notepad, may need to do dos2unix before compiling
+*Code to solve a matrix n*n using relaxation technique
+*Usage: function intSize intThreads
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -33,7 +38,7 @@ void deepCopy(size_t s, double **matrix, double **matrixCopy, int initialFlag) {
 
 void *threadSolver(void *args) {
     struct threadArguments *arg = (struct threadArguments *) args;
-    double a, b, c, d, diff, element;
+    double diff;
     double *biggestDiff = malloc(sizeof(double));
     int count = 0;                                            //count of elements to process
     int i = arg->startRow;                                    //pre calculated start row
@@ -41,21 +46,23 @@ void *threadSolver(void *args) {
     for (i; i < ((arg->s) - 1); i++) {
         for (j; j < ((arg->s) - 1); j++) {
             if (count < arg->n) {                           //if thread still has elements to calculate
-                a = arg->originalMatrix[(i - 1)][j];
-                b = arg->originalMatrix[(i + 1)][j];
-                c = arg->originalMatrix[i][(j + 1)];
-                d = arg->originalMatrix[i][(j - 1)];
-                element = ((a + b + c + d) / 4.0);          //calculate new element from adjacent
-                arg->workingMatrix[i][j] = element;
-                diff = fabs(arg->workingMatrix[i][j] -
-                            arg->originalMatrix[i][j]); //difference between og and calculated element
-                if (diff > *biggestDiff) { *biggestDiff = diff; }                  //set biggest difference
+                arg->workingMatrix[i][j] = ((arg->originalMatrix[(i - 1)][j] +
+                        arg->originalMatrix[(i + 1)][j] +
+                        arg->originalMatrix[i][(j + 1)] +    //calculate new element from adjacent
+                        arg->originalMatrix[i][(j - 1)])/ 4.0);
+
+                diff = arg->workingMatrix[i][j] - arg->originalMatrix[i][j]; //difference between og and calculated element
+                if (diff > *biggestDiff || -diff>*biggestDiff) { *biggestDiff = diff; }                  //set biggest difference
                 count++;
+            } else{
+                *biggestDiff=fabs(*biggestDiff);
+                return biggestDiff;
             }
         }
 
         j = 1;                                                //after first loop, start col =1
     }
+    *biggestDiff=fabs(*biggestDiff);
     return biggestDiff;                                      //return biggest diff for thread
 }
 
@@ -114,6 +121,7 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
 }
 
 //input format $size.txt same directory as executable
+//file format: number\n
 void readFromFile(size_t s, double **matrix) {
     char buffer[50];
     sprintf(buffer, "%d.txt", s);
@@ -126,6 +134,7 @@ void readFromFile(size_t s, double **matrix) {
 }
 
 //output format $sizeRT$threads.txt same directory as executable
+//file format:csv matrixRow\n with time taken appended
 void writeToFile(size_t s, double **matrix, float diff, int t) {
     char buffer[50];
     sprintf(buffer, "%dRT%d.txt", s, t);

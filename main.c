@@ -75,9 +75,9 @@ void threadedSolver(size_t s, double **originalMatrix, int t, double p) {
     }
     deepCopy(s, originalMatrix, workingMatrix, 1);              //initial copy
 
-    int noElements = (int) floor(                                  //elements per thread = round down of elements to be calculated/ NoThreads
-            (pow((s - 2), 2) / t));
-    int lastTElements = (int) pow( (s - 2), 2)                      //when last thread
+    int noElements = (int) floor(                                 //elements per thread = round down of elements to be calculated/ NoThreads
+          (s - 2)*(s - 2) / t );
+    int lastTElements = (int)  (s - 2)*(s - 2)                     //when last thread
                         -  ((t - 1) *  noElements);                 //elements = total elements - elements assigned so far
 
     struct threadArguments *argArray=(struct threadArguments *)     //array of arguments for thread
